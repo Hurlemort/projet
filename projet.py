@@ -1,20 +1,27 @@
-from random import randint,choice
+from random import randint,choice, uniform
+from math import cos, sin, pi
 import pygame
 scoreg, scored = 0,0
 
+def signe(n):
+    return n/abs(n)
 
 def jeu(scoreg, scored):
     pygame.init()
     largeur ,hauteur=800,600
     monEcran=pygame.display.set_mode((largeur ,hauteur ))
-
+    aAug=True
     jeu_en_cours=True
     vitesse=0.1
 
     #balle
     posx=largeur//2
     posy=hauteur//2
-    direction=choice([[1,1],[-1,1],[1,-1],[-1,-1]])
+    direction=choice([[cos(pi/4),sin(pi/4)],
+                      [cos(-1*pi/4),sin(-1*pi/4)],
+                      [cos(5*pi/4),sin(5*pi/4)],
+                      [cos(-3*pi/4),sin(-3*pi/4)]
+                      ])
     rayon=15
 
     # scores
@@ -48,26 +55,32 @@ def jeu(scoreg, scored):
         
         #mouvement des raquettes
         if mouvHautg==True:
-            raqgy-=0.5
+            if raqgy>=10:
+                raqgy-=0.5
         if mouvBasg==True:
-            raqgy+=0.5
+            if raqgy<=hauteur-hg-10:
+                raqgy+=0.5
             
         if mouvHautd==True:
-            raqdy-=0.5
+            if raqdy>=10:
+                raqdy-=0.5
         if mouvBasd==True:
-            raqdy+=0.5
-        # rebond raquettes    
-        if (raqgx<posx-rayon<raqgx+wg and raqgy<posy+rayon<raqgy+hg) ^ (raqdx<posx+rayon<raqdx+wd and raqdy<posy+rayon<raqdy+hd): #collision balle-raquettes
-            direction[0]*=-1
-            vitesse+=0.05
+            if raqdy<=hauteur-hd:
+                raqdy+=0.5
+        # rebond raquettes
+        b=signe(direction[1])
+        a=round(uniform(0,pi/2),2)
+        if (raqgx<=posx-rayon<=raqgx+wg and raqgy<=posy<=raqgy+hg) ^ (raqdx<=posx+rayon<=raqdx+wd and raqdy<=posy<=raqdy+hd): #collision balle-raquettes
+            direction[0]=-b*sin(a)
+            if aAug==False:
+                vitesse+=0.05
+            aAug=True
         
         if posx+rayon<0:
             scoreg+=1
-            jeu(scoreg, scored)
             
         elif posx-rayon>largeur:
             scored+=1
-            jeu(scoreg, scored)
 
             
         
@@ -98,9 +111,20 @@ def jeu(scoreg, scored):
                 
                 if evenement.key==pygame.K_m:
                     mouvBasd=True
-            
+                    
             elif evenement.type==pygame.KEYUP:
-                mouvHautg, mouvBasg, mouvHautd, mouvBasd=False, False, False, False
+                if evenement.key==pygame.K_a:
+                    mouvHautg=False
+                    
+                if evenement.key==pygame.K_q:
+                    mouvBasg=False
+                    
+                if evenement.key==pygame.K_p:
+                    mouvHautd=False
+                    
+                if evenement.key==pygame.K_m:
+                    mouvBasd=False
+
                     
     pygame.quit()
     
