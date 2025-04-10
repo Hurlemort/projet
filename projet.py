@@ -1,7 +1,7 @@
 from random import randint,choice, uniform
 from math import cos, sin, pi
 import pygame
-scoreg, scored = 0,0
+deuxscore=(0,0, True)
 
 def signe(n):
     return n/abs(n)
@@ -68,19 +68,23 @@ def jeu(scoreg, scored):
             if raqdy<=hauteur-hd:
                 raqdy+=0.5
         # rebond raquettes
-        b=signe(direction[1])
-        a=round(uniform(0,pi/2),2)
+
         if (raqgx<=posx-rayon<=raqgx+wg and raqgy<=posy<=raqgy+hg) ^ (raqdx<=posx+rayon<=raqdx+wd and raqdy<=posy<=raqdy+hd): #collision balle-raquettes
+            b=signe(direction[1])
+            a=round(uniform(0,pi/2),2)
             direction[0]=-b*sin(a)
             if aAug==False:
-                vitesse+=0.05
-            aAug=True
-        
+                vitesse+=0.01
+                aAug=True
+        #if (raqgx+wg<=posx-rayon<=raqgx+wg+20 and raqgy+hg<=posy<=raqgy+hg+20) ^ (raqdx+wd<=posx+rayon<=raqdx+wd+20 and raqdy+hd<=posy<=raqdy+hd+20):
+            #aAug=False
         if posx+rayon<0:
             scoreg+=1
+            return (scoreg,scored,True)
             
         elif posx-rayon>largeur:
             scored+=1
+            return (scoreg,scored,True)
 
             
         
@@ -124,9 +128,8 @@ def jeu(scoreg, scored):
                     
                 if evenement.key==pygame.K_m:
                     mouvBasd=False
-
-                    
     pygame.quit()
-    
-jeu(scoreg,scored)
+    return (0,0,False)
 
+while deuxscore[2]==True:                
+    deuxscore=jeu(deuxscore[0],deuxscore[1])
