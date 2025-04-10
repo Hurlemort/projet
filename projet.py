@@ -69,15 +69,24 @@ def jeu(scoreg, scored):
                 raqdy+=0.5
         # rebond raquettes
 
-        if (raqgx<=posx-rayon<=raqgx+wg and raqgy<=posy<=raqgy+hg) ^ (raqdx<=posx+rayon<=raqdx+wd and raqdy<=posy<=raqdy+hd): #collision balle-raquettes
-            b=signe(direction[1])
-            a=round(uniform(0,pi/2),2)
+        if raqgx<=posx-rayon<=raqgx+wg and raqgy<=posy<=raqgy+hg:
+            b=signe(direction[0])
+            a=round(uniform(-pi/6,-pi/3),2)
             direction[0]=-b*sin(a)
-            if aAug==False:
-                vitesse+=0.01
-                aAug=True
-        #if (raqgx+wg<=posx-rayon<=raqgx+wg+20 and raqgy+hg<=posy<=raqgy+hg+20) ^ (raqdx+wd<=posx+rayon<=raqdx+wd+20 and raqdy+hd<=posy<=raqdy+hd+20):
-            #aAug=False
+            #if aAug==False:
+            #    vitesse+=0.05
+            #    aAug=True  
+        elif raqdx<=posx+rayon<=raqdx+wd and raqdy<=posy<=raqdy+hd:
+            b=signe(direction[0])
+            a=round(uniform(pi/6,pi/3),2)
+            direction[0]=-b*sin(a)
+            #if aAug==False:
+            #    vitesse+=0.05
+            #    aAug=True            
+            
+            
+        if (raqgx+wg+20<=posx-rayon<=raqgx+wg+40) ^ (raqdx+wd+20<=posx+rayon<=raqdx+wd+40):
+            aAug=False
         if posx+rayon<0:
             scoreg+=1
             return (scoreg,scored,True)
