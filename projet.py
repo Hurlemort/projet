@@ -1,8 +1,15 @@
 import os
+import sys
 import pygame
 import win32gui
 from random import randint, choice, uniform
 from math import cos, sin, pi
+
+# Fixe le répertoire de travail à celui du script
+script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+os.chdir(script_dir)
+
+pygame.mixer.pre_init(44100, -16, 2, 256)
 
 pygame.init()
 
@@ -15,12 +22,20 @@ retour = {"scoreg": 0, "scored": 0, "hauteur": hauteur, "largeur": largeur, "jeu
 decalement = 20
 reduction = 2
 
-musique=pygame.mixer.Sound("assets\sons\musique.mp3")
 joueMusique=False
-rebonds=[pygame.mixer.Sound("assets\sons\\rebond1.mp3"), pygame.mixer.Sound("assets\sons\\rebond2.mp3"), pygame.mixer.Sound("assets\sons\\rebond3.mp3"), pygame.mixer.Sound("assets\sons\\rebond4.mp3")]
+canal_rebond = pygame.mixer.Channel(1)
+musique = pygame.mixer.Sound(os.path.join("assets", "sons", "musique.mp3"))
+rebonds = [
+    pygame.mixer.Sound(os.path.join("assets", "sons", "rebond1.mp3")),
+    pygame.mixer.Sound(os.path.join("assets", "sons", "rebond2.mp3")),
+    pygame.mixer.Sound(os.path.join("assets", "sons", "rebond3.mp3")),
+    pygame.mixer.Sound(os.path.join("assets", "sons", "rebond4.mp3")),
+]
+
+
 
 def sonRebondAleatoire():
-    rebonds[randint(1,len(rebonds)-1)].play()
+    canal_rebond.play(choice(rebonds))
 
 def signe(n):
     return n / abs(n)
