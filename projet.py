@@ -33,10 +33,6 @@ rebonds = [
 ]
 
 
-
-def sonRebondAleatoire():
-    canal_rebond.play(choice(rebonds))
-
 def signe(n):
     return n / abs(n)
 
@@ -61,6 +57,66 @@ def reduit_fenetre(pointeur, largeur, hauteur):
 
     return monEcran
 
+def menu():
+    pygame.init()
+    largeur, hauteur = 800, 600
+    fenetre = pygame.display.set_mode((largeur, hauteur))
+    pygame.display.set_caption("Entree des noms")
+
+    police = pygame.font.Font(None, 60)
+    couleur_fond = (30, 30, 30)
+    couleur_texte = (255, 255, 255)
+
+    joueurg = ""
+    joueurd = ""
+    entrer_compteur = 0
+    texte_actif = "gauche"
+
+    clock = pygame.time.Clock()
+
+    while True:
+        for evenement in pygame.event.get():
+            if evenement.type == pygame.QUIT:
+                pygame.quit()
+
+            if evenement.type == pygame.KEYDOWN:
+                if evenement.key == pygame.K_RETURN:
+                    entrer_compteur += 1
+                    if entrer_compteur == 1:
+                        texte_actif = "droite"
+                    elif entrer_compteur == 2:
+                        # Valeurs par défaut si les champs sont vides ou remplis d'espaces
+                        if joueurg.strip() == "":
+                            joueurg = "flibidi"
+                        if joueurd.strip() == "":
+                            joueurd = "zagrub"
+                        return joueurg, joueurd
+
+                elif evenement.key == pygame.K_BACKSPACE:
+                    if texte_actif == "gauche":
+                        joueurg = joueurg[:-1]
+                    else:
+                        joueurd = joueurd[:-1]
+                else:
+                    caractere = evenement.unicode
+                    if caractere.isprintable():
+                        if texte_actif == "gauche":
+                            joueurg += caractere
+                        else:
+                            joueurd += caractere
+
+        fenetre.fill(couleur_fond)
+
+        if texte_actif == "gauche":
+            texte_affiche = "Nom du joueur de gauche: " + joueurg
+        else:
+            texte_affiche = "Nom du joueur de droit: " + joueurd
+
+        rendu_texte = police.render(texte_affiche, True, couleur_texte)
+        rect_texte = rendu_texte.get_rect(center=(largeur // 2, hauteur // 2))
+        fenetre.blit(rendu_texte, rect_texte)
+
+        pygame.display.flip()
 
 def jeu(scoreg, scored, largeur, hauteur):
     # Paramètres initiaux
@@ -96,15 +152,22 @@ def jeu(scoreg, scored, largeur, hauteur):
 
     while jeu_en_cours:
         pygame.display.update()
-        monEcran.fill((100, 40, 70))
+        monEcran.fill((30, 30, 30))
+
         scores = f"{scoreg} - {scored}"
         score_texte = police.render(scores, True, (255, 255, 255))
         monEcran.blit(score_texte, score_texte.get_rect(center=(largeur // 2, 20)))
 
+        affiche_joueurg = police.render(joueurg, True, (255, 255, 255))
+        affiche_joueurd = police.render(joueurd, True, (255, 255, 255))
+
+        monEcran.blit(affiche_joueurg, (20, 20))
+        monEcran.blit(affiche_joueurd, affiche_joueurd.get_rect(topright=(largeur - 20, 20)))
+
         # Collision haut/bas
         if posy <= 0 or posy >= hauteur:
+            canal_rebond.play(choice(rebonds))
             direction[1] *= -1
-            sonRebondAleatoire()
             if hauteur + decalement <= MAX_HAUTEUR:
                 hauteur += decalement
                 monEcran= grandit_fenetre(pointeur, largeur, hauteur, decalage_haut=posy <= 0)
@@ -130,6 +193,7 @@ def jeu(scoreg, scored, largeur, hauteur):
 
         if rebond_gauche or rebond_droite:
             if not aReb:
+                canal_rebond.play(choice(rebonds))
                 angle = uniform(pi/6, pi/3)
                 direction[0] = direction_facteur * abs(cos(angle))
                 direction[1] = signe(direction[1]) * abs(sin(angle))
@@ -138,7 +202,6 @@ def jeu(scoreg, scored, largeur, hauteur):
                 raqdx += decalement
                 monEcran = grandit_fenetre(pointeur, largeur, hauteur, decalage_gauche=rebond_gauche)
                 aReb = True
-                sonRebondAleatoire()
 
         # Reset rebond
         if not (raqgx - 2 * rayon <= posx <= raqgx + wg + 2 * rayon or
@@ -154,8 +217,8 @@ def jeu(scoreg, scored, largeur, hauteur):
             return {"scoreg": scoreg, "scored": scored, "hauteur": hauteur, "largeur": largeur, "jeu": True}
 
         # Dessins
-        pygame.draw.rect(monEcran, (100, 100, 100), (raqgx, raqgy, wg, hg))
-        pygame.draw.rect(monEcran, (100, 100, 100), (raqdx, raqdy, wd, hd))
+        pygame.draw.rect(monEcran, (255, 255, 255), (raqgx, raqgy, wg, hg))
+        pygame.draw.rect(monEcran, (255, 255, 255), (raqdx, raqdy, wd, hd))
         posx += vitesse * direction[0]
         posy += vitesse * direction[1]
         pygame.draw.circle(monEcran, (255, 255, 255), (posx, posy), rayon)
@@ -195,8 +258,12 @@ def jeu(scoreg, scored, largeur, hauteur):
     return {"scoreg": 0, "scored": 0, "hauteur": hauteur, "largeur": largeur, "jeu": False}
 
 # Boucle principale
+joueurs=menu()
+joueurg=joueurs[0]
+joueurd=joueurs[1]
 while retour["jeu"]:
     if not joueMusique:
-        musique.play()
+        musique.play(loops=-1)
+        musique.set_volume(0.3)
         joueMusique=True
     retour = jeu(retour["scoreg"], retour["scored"], retour["largeur"], retour["hauteur"])
