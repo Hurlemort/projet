@@ -1,7 +1,7 @@
 import os
 import pygame
 import win32gui
-from random import choice, uniform
+from random import randint, choice, uniform
 from math import cos, sin, pi
 
 pygame.init()
@@ -15,38 +15,46 @@ retour = {"scoreg": 0, "scored": 0, "hauteur": hauteur, "largeur": largeur, "jeu
 decalement = 20
 reduction = 2
 
+musique=pygame.mixer.Sound("assets\sons\musique.mp3")
+joueMusique=False
+rebonds=[pygame.mixer.Sound("assets\sons\\rebond1.mp3"), pygame.mixer.Sound("assets\sons\\rebond2.mp3"), pygame.mixer.Sound("assets\sons\\rebond3.mp3"), pygame.mixer.Sound("assets\sons\\rebond4.mp3")]
+
+def sonRebondAleatoire():
+    rebonds[randint(1,len(rebonds)-1)].play()
+
 def signe(n):
     return n / abs(n)
 
-def grandit_fenetre(hwnd, largeur, hauteur, decalage_haut=False, decalage_gauche=False):
+def grandit_fenetre(pointeur, largeur, hauteur, decalage_haut=False, decalage_gauche=False):
     monEcran = pygame.display.set_mode((largeur, hauteur))
-    dimensions = win32gui.GetWindowRect(hwnd)
+    dimensions = win32gui.GetWindowRect(pointeur)
 
     if (decalage_haut):
-        win32gui.MoveWindow(hwnd, dimensions[0], dimensions[1]-decalement, dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
+        win32gui.MoveWindow(pointeur, dimensions[0], dimensions[1]-decalement, dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
     elif (decalage_gauche):
-        win32gui.MoveWindow(hwnd, dimensions[0]-decalement, dimensions[1], dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
+        win32gui.MoveWindow(pointeur, dimensions[0]-decalement, dimensions[1], dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
 
     return monEcran
 
-def reduit_fenetre(hwnd, largeur, hauteur):
+def reduit_fenetre(pointeur, largeur, hauteur):
     monEcran = pygame.display.set_mode((largeur, hauteur))
-    dimensions = win32gui.GetWindowRect(hwnd)
+    dimensions = win32gui.GetWindowRect(pointeur)
 
     x = dimensions[0]+reduction//2
     y = dimensions[1]+reduction//2
-    win32gui.MoveWindow(hwnd, x, y, dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
+    win32gui.MoveWindow(pointeur, x, y, dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
 
     return monEcran
 
 
 def jeu(scoreg, scored, largeur, hauteur):
-    # Appliquer position initiale
+    # Paramètres initiaux
     os.environ['SDL_VIDEO_WINDOW_POS'] = f"{(largeurEC - largeur) // 2},{(hauteurEC - hauteur) // 2}"
     monEcran = pygame.display.set_mode((largeur, hauteur))
     pygame.display.set_caption("Super Pong")
+    
 
-    hwnd = win32gui.FindWindow(None, "Super Pong")
+    pointeur = win32gui.FindWindow(None, "Super Pong")
 
     aReb = False
     jeu_en_cours = True
@@ -78,12 +86,13 @@ def jeu(scoreg, scored, largeur, hauteur):
         score_texte = police.render(scores, True, (255, 255, 255))
         monEcran.blit(score_texte, score_texte.get_rect(center=(largeur // 2, 20)))
 
-        # Collision haut
+        # Collision haut/bas
         if posy <= 0 or posy >= hauteur:
             direction[1] *= -1
+            sonRebondAleatoire()
             if hauteur + decalement <= MAX_HAUTEUR:
                 hauteur += decalement
-                monEcran= grandit_fenetre(hwnd, largeur, hauteur, decalage_haut=posy <= 0)
+                monEcran= grandit_fenetre(pointeur, largeur, hauteur, decalage_haut=posy <= 0)
 
         # Mouvements des raquettes
         if mouvHautg and raqgy >= 10:
@@ -112,8 +121,9 @@ def jeu(scoreg, scored, largeur, hauteur):
                 vitesse += 0.025
                 largeur += decalement
                 raqdx += decalement
-                monEcran = grandit_fenetre(hwnd, largeur, hauteur, decalage_gauche=rebond_gauche)
+                monEcran = grandit_fenetre(pointeur, largeur, hauteur, decalage_gauche=rebond_gauche)
                 aReb = True
+                sonRebondAleatoire()
 
         # Reset rebond
         if not (raqgx - 2 * rayon <= posx <= raqgx + wg + 2 * rayon or
@@ -140,7 +150,7 @@ def jeu(scoreg, scored, largeur, hauteur):
             largeur -= reduction
             hauteur -= reduction
             raqdx -= reduction
-            monEcran = reduit_fenetre(hwnd, largeur, hauteur)
+            monEcran = reduit_fenetre(pointeur, largeur, hauteur)
 
         # Evenements pygame
         for evenement in pygame.event.get():
@@ -171,4 +181,7 @@ def jeu(scoreg, scored, largeur, hauteur):
 
 # Boucle principale
 while retour["jeu"]:
+    if not joueMusique:
+        musique.play()
+        joueMusique=True
     retour = jeu(retour["scoreg"], retour["scored"], retour["largeur"], retour["hauteur"])
