@@ -1,7 +1,6 @@
 import os
 import pygame
 import win32gui
-import win32con
 from random import choice, uniform
 from math import cos, sin, pi
 
@@ -13,15 +12,33 @@ largeur, hauteur = 800, 600
 
 retour = {"scoreg": 0, "scored": 0, "hauteur": hauteur, "largeur": largeur, "jeu": True}
 
+decalement = 20
+reduction = 2
+
 def signe(n):
     return n / abs(n)
 
-def move_window(hwnd, largeur, hauteur, decalage_haut=False):
-    x = (largeurEC - largeur) // 2
-    y = (hauteurEC - hauteur) // 2
-    if decalage_haut:
-        y -= 20
-    win32gui.MoveWindow(hwnd, x, y, largeur, hauteur, True)
+def grandit_fenetre(hwnd, largeur, hauteur, decalage_haut=False, decalage_gauche=False):
+    monEcran = pygame.display.set_mode((largeur, hauteur))
+    dimensions = win32gui.GetWindowRect(hwnd)
+
+    if (decalage_haut):
+        win32gui.MoveWindow(hwnd, dimensions[0], dimensions[1]-decalement, dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
+    elif (decalage_gauche):
+        win32gui.MoveWindow(hwnd, dimensions[0]-decalement, dimensions[1], dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
+
+    return monEcran
+
+def reduit_fenetre(hwnd, largeur, hauteur):
+    monEcran = pygame.display.set_mode((largeur, hauteur))
+    dimensions = win32gui.GetWindowRect(hwnd)
+
+    x = dimensions[0]+reduction//2
+    y = dimensions[1]+reduction//2
+    win32gui.MoveWindow(hwnd, x, y, dimensions[2]-dimensions[0], dimensions[3]-dimensions[1], True)
+
+    return monEcran
+
 
 def jeu(scoreg, scored, largeur, hauteur):
     # Appliquer position initiale
@@ -43,7 +60,7 @@ def jeu(scoreg, scored, largeur, hauteur):
                         [cos(-3*pi/4), sin(-3*pi/4)]])
     rayon = 15
 
-    font = pygame.font.SysFont('arial', 30)
+    police = pygame.font.SysFont('arial', 30)
 
     # Raquettes
     raqgx, raqgy = 20, hauteur // 2
@@ -58,24 +75,15 @@ def jeu(scoreg, scored, largeur, hauteur):
         pygame.display.update()
         monEcran.fill((100, 40, 70))
         scores = f"{scoreg} - {scored}"
-        score_text = font.render(scores, True, (255, 255, 255))
-        monEcran.blit(score_text, score_text.get_rect(center=(largeur // 2, 20)))
+        score_texte = police.render(scores, True, (255, 255, 255))
+        monEcran.blit(score_texte, score_texte.get_rect(center=(largeur // 2, 20)))
 
         # Collision haut
-        if posy <= 0:
+        if posy <= 0 or posy >= hauteur:
             direction[1] *= -1
-            if hauteur + 20 <= MAX_HAUTEUR:
-                hauteur += 20
-                move_window(hwnd, largeur, hauteur, decalage_haut=True)
-                monEcran = pygame.display.set_mode((largeur, hauteur))
-
-        # Collision bas
-        elif posy >= hauteur:
-            direction[1] *= -1
-            if hauteur + 20 <= MAX_HAUTEUR:
-                hauteur += 20
-                move_window(hwnd, largeur, hauteur)
-                monEcran = pygame.display.set_mode((largeur, hauteur))
+            if hauteur + decalement <= MAX_HAUTEUR:
+                hauteur += decalement
+                monEcran= grandit_fenetre(hwnd, largeur, hauteur, decalage_haut=posy <= 0)
 
         # Mouvements des raquettes
         if mouvHautg and raqgy >= 10:
@@ -88,20 +96,23 @@ def jeu(scoreg, scored, largeur, hauteur):
             raqdy += 0.5
 
         # Rebond sur les raquettes
+        rebond_gauche = rebond_droite = False
         if raqgx <= posx - rayon <= raqgx + wg and raqgy <= posy <= raqgy + hg:
-            if not aReb:
-                angle = uniform(pi/6, pi/3)
-                direction[0] = abs(cos(angle))
-                direction[1] = signe(direction[1]) * abs(sin(angle))
-                vitesse += 0.05
-                aReb = True
-
+            rebond_gauche = True
+            direction_facteur = 1
         elif raqdx <= posx + rayon <= raqdx + wd and raqdy <= posy <= raqdy + hd:
+            rebond_droite = True
+            direction_facteur = -1
+
+        if rebond_gauche or rebond_droite:
             if not aReb:
                 angle = uniform(pi/6, pi/3)
-                direction[0] = -abs(cos(angle))
+                direction[0] = direction_facteur * abs(cos(angle))
                 direction[1] = signe(direction[1]) * abs(sin(angle))
-                vitesse += 0.05
+                vitesse += 0.025
+                largeur += decalement
+                raqdx += decalement
+                monEcran = grandit_fenetre(hwnd, largeur, hauteur, decalage_gauche=rebond_gauche)
                 aReb = True
 
         # Reset rebond
@@ -124,7 +135,14 @@ def jeu(scoreg, scored, largeur, hauteur):
         posy += vitesse * direction[1]
         pygame.draw.circle(monEcran, (255, 255, 255), (posx, posy), rayon)
 
-        # Events
+        # Reduit la fenêtre
+        if pygame.time.get_ticks() % 200 == 0:  # le fais toute les 200ms
+            largeur -= reduction
+            hauteur -= reduction
+            raqdx -= reduction
+            monEcran = reduit_fenetre(hwnd, largeur, hauteur)
+
+        # Evenements pygame
         for evenement in pygame.event.get():
             if evenement.type == pygame.QUIT:
                 jeu_en_cours = False
