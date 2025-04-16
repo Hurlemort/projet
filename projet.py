@@ -1,5 +1,7 @@
 import os
 import pygame
+import win32gui
+import win32con
 from random import choice, uniform
 from math import cos, sin, pi
 
@@ -12,16 +14,22 @@ largeur, hauteur = 800, 600
 retour = {"scoreg": 0, "scored": 0, "hauteur": hauteur, "largeur": largeur, "jeu": True}
 
 def signe(n):
-    return n/abs(n)
+    return n / abs(n)
 
-def centrer_fenetre(largeur, hauteur, decalage_haut=False,):
+def move_window(hwnd, largeur, hauteur, decalage_haut=False):
     x = (largeurEC - largeur) // 2
     y = (hauteurEC - hauteur) // 2
-    os.environ['SDL_VIDEO_WINDOW_POS'] = f"{x},{y}"
+    if decalage_haut:
+        y -= 20
+    win32gui.MoveWindow(hwnd, x, y, largeur, hauteur, True)
 
 def jeu(scoreg, scored, largeur, hauteur):
-    centrer_fenetre(largeur, hauteur)
+    # Appliquer position initiale
+    os.environ['SDL_VIDEO_WINDOW_POS'] = f"{(largeurEC - largeur) // 2},{(hauteurEC - hauteur) // 2}"
     monEcran = pygame.display.set_mode((largeur, hauteur))
+    pygame.display.set_caption("Super Pong")
+
+    hwnd = win32gui.FindWindow(None, "Super Pong")
 
     aReb = False
     jeu_en_cours = True
@@ -58,7 +66,7 @@ def jeu(scoreg, scored, largeur, hauteur):
             direction[1] *= -1
             if hauteur + 20 <= MAX_HAUTEUR:
                 hauteur += 20
-                centrer_fenetre(largeur, hauteur, decalage_haut=True)
+                move_window(hwnd, largeur, hauteur, decalage_haut=True)
                 monEcran = pygame.display.set_mode((largeur, hauteur))
 
         # Collision bas
@@ -66,7 +74,7 @@ def jeu(scoreg, scored, largeur, hauteur):
             direction[1] *= -1
             if hauteur + 20 <= MAX_HAUTEUR:
                 hauteur += 20
-                centrer_fenetre(largeur, hauteur)
+                move_window(hwnd, largeur, hauteur)
                 monEcran = pygame.display.set_mode((largeur, hauteur))
 
         # Mouvements des raquettes
@@ -96,12 +104,12 @@ def jeu(scoreg, scored, largeur, hauteur):
                 vitesse += 0.05
                 aReb = True
 
-        # Reset rebond si hors raquettes
+        # Reset rebond
         if not (raqgx - 2 * rayon <= posx <= raqgx + wg + 2 * rayon or
                 raqdx - 2 * rayon <= posx <= raqdx + wd + 2 * rayon):
             aReb = False
 
-        # Gestion des points (hauteur non transmise augmentée)
+        # Score
         if posx + rayon < 0:
             scoreg += 1
             return {"scoreg": scoreg, "scored": scored, "hauteur": hauteur, "largeur": largeur, "jeu": True}
@@ -116,7 +124,7 @@ def jeu(scoreg, scored, largeur, hauteur):
         posy += vitesse * direction[1]
         pygame.draw.circle(monEcran, (255, 255, 255), (posx, posy), rayon)
 
-        # Événements clavier
+        # Events
         for evenement in pygame.event.get():
             if evenement.type == pygame.QUIT:
                 jeu_en_cours = False
@@ -143,5 +151,6 @@ def jeu(scoreg, scored, largeur, hauteur):
     pygame.quit()
     return {"scoreg": 0, "scored": 0, "hauteur": hauteur, "largeur": largeur, "jeu": False}
 
+# Boucle principale
 while retour["jeu"]:
     retour = jeu(retour["scoreg"], retour["scored"], retour["largeur"], retour["hauteur"])
