@@ -3,7 +3,9 @@ import sys
 import pygame
 import win32gui
 from random import randint, choice, uniform
-from math import cos, sin, pi
+from math import cos, sin, sqrt, pi
+
+from param import *
 
 # Fixe le répertoire de travail à celui du script
 script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -34,7 +36,7 @@ rebonds = [
 
 
 def signe(n):
-    return n / abs(n)
+    return n/abs(n)
 
 def grandit_fenetre(pointeur, largeur, hauteur, decalage_haut=False, decalage_gauche=False):
     monEcran = pygame.display.set_mode((largeur, hauteur))
@@ -65,14 +67,13 @@ def menu():
 
     police = pygame.font.Font(None, 60)
     couleur_fond = (30, 30, 30)
-    couleur_texte = (255, 255, 255)
+    couleur_texte = BLANC
 
     joueurg = ""
     joueurd = ""
     entrer_compteur = 0
     texte_actif = "gauche"
 
-    clock = pygame.time.Clock()
 
     while True:
         for evenement in pygame.event.get():
@@ -118,16 +119,45 @@ def menu():
 
         pygame.display.flip()
 
+
+    
+def powerup(hauteur, largeur):
+    ecart=60
+    powx=randint(ecart, largeur-ecart)
+    powy=randint(ecart, hauteur-ecart)
+    diff_powerup=[ROUGE,VERT,BLEU]
+    rep=[(powx, powy), RAYON_POWERUP]
+    rep.append(choice(diff_powerup))
+    return rep
+
+def num_powerup(dico) :
+    n = 0
+    for element in dico["cercle"].keys() :
+        if "powerup" in element :
+            n += 1
+    return n
+
+def collision_powerup(dico_dessin,posx,posy):
+    distance_min = RAYON_BALLE+RAYON_POWERUP
+    for element in dico_dessin["cercle"].items():
+        if "powerup" in element[0] and sqrt((posx-element[1][0][0])**2 + (posy-element[1][0][1])**2) <= distance_min:
+            return element
+
+
+def afficher(dico_dessin, monEcran) :
+    for element in dico_dessin["rectangle"].values() :
+        pygame.draw.rect(monEcran,element[1],element[0])
+    for element in dico_dessin["cercle"].values() :
+        pygame.draw.circle(monEcran,element[2],element[0],element[1])
+
 def jeu(scoreg, scored, largeur, hauteur):
     # Paramètres initiaux
     os.environ['SDL_VIDEO_WINDOW_POS'] = f"{(largeurEC - largeur) // 2},{(hauteurEC - hauteur) // 2}"
     monEcran = pygame.display.set_mode((largeur, hauteur))
     pygame.display.set_caption("Super Pong")
-    
 
     pointeur = win32gui.FindWindow(None, "Super Pong")
 
-    aReb = False
     jeu_en_cours = True
     vitesse = 0.1
 
@@ -137,9 +167,8 @@ def jeu(scoreg, scored, largeur, hauteur):
                         [cos(-pi/4), sin(-pi/4)],
                         [cos(5*pi/4), sin(5*pi/4)],
                         [cos(-3*pi/4), sin(-3*pi/4)]])
-    rayon = 15
 
-    police = pygame.font.SysFont('arial', 30)
+    police = pygame.font.Font(None, 60)
 
     # Raquettes
     raqgx, raqgy = 20, hauteur // 2
@@ -150,16 +179,32 @@ def jeu(scoreg, scored, largeur, hauteur):
 
     MAX_HAUTEUR = hauteurEC
 
+    dico_dessin={
+            "rectangle" : {
+                "raquette gauche" : [(raqgx, raqgy, wg, hg), BLANC],
+                "raquette droite" : [(raqdx, raqdy, wd, hd),BLANC]
+            },
+            "cercle": {
+                "balle" : [(posx, posy), RAYON_BALLE, BLANC]
+            }
+    }
+
+    id_powerup=0
+    inverse_controle=False
+    joueur_inverse = None
+    double_raquette_gauche = False
+    double_raquette_droite = False
+
     while jeu_en_cours:
         pygame.display.update()
         monEcran.fill((30, 30, 30))
 
         scores = f"{scoreg} - {scored}"
-        score_texte = police.render(scores, True, (255, 255, 255))
-        monEcran.blit(score_texte, score_texte.get_rect(center=(largeur // 2, 20)))
+        score_texte = police.render(scores, True, BLANC)
+        monEcran.blit(score_texte, score_texte.get_rect(center=(largeur // 2, 40)))
 
-        affiche_joueurg = police.render(joueurg, True, (255, 255, 255))
-        affiche_joueurd = police.render(joueurd, True, (255, 255, 255))
+        affiche_joueurg = police.render(joueurg, True, BLANC)
+        affiche_joueurd = police.render(joueurd, True, BLANC)
 
         monEcran.blit(affiche_joueurg, (20, 20))
         monEcran.blit(affiche_joueurd, affiche_joueurd.get_rect(topright=(largeur - 20, 20)))
@@ -173,55 +218,91 @@ def jeu(scoreg, scored, largeur, hauteur):
                 monEcran= grandit_fenetre(pointeur, largeur, hauteur, decalage_haut=posy <= 0)
 
         # Mouvements des raquettes
-        if mouvHautg and raqgy >= 10:
-            raqgy -= 0.5
-        if mouvBasg and raqgy <= hauteur - hg - 10:
-            raqgy += 0.5
-        if mouvHautd and raqdy >= 10:
-            raqdy -= 0.5
-        if mouvBasd and raqdy <= hauteur - hd:
-            raqdy += 0.5
+        avancement = 0.4
+        # Gauche
+        if double_raquette_gauche:
+            if mouvHautg and raqgy <= hauteur - hg - 10:
+                raqgy += avancement  # inversé
+            if mouvBasg and raqgy >= 10:
+                raqgy -= avancement
+        else:
+            if mouvHautg and raqgy >= 10:
+                raqgy -= avancement
+            if mouvBasg and raqgy <= hauteur - hg - 10:
+                raqgy += avancement
 
-        # Rebond sur les raquettes
-        rebond_gauche = rebond_droite = False
-        if raqgx <= posx - rayon <= raqgx + wg and raqgy <= posy <= raqgy + hg:
-            rebond_gauche = True
-            direction_facteur = 1
-        elif raqdx <= posx + rayon <= raqdx + wd and raqdy <= posy <= raqdy + hd:
-            rebond_droite = True
-            direction_facteur = -1
+        # Droite
+        if double_raquette_droite:
+            if mouvHautd and raqdy <= hauteur - hd - 10:
+                raqdy += avancement
+            if mouvBasd and raqdy >= 10:
+                raqdy -= avancement
+        else:
+            if mouvHautd and raqdy >= 10:
+                raqdy -= avancement
+            if mouvBasd and raqdy <= hauteur - hd:
+                raqdy += avancement
 
-        if rebond_gauche or rebond_droite:
-            if not aReb:
-                canal_rebond.play(choice(rebonds))
-                angle = uniform(pi/6, pi/3)
-                direction[0] = direction_facteur * abs(cos(angle))
-                direction[1] = signe(direction[1]) * abs(sin(angle))
-                vitesse += 0.025
-                largeur += decalement
-                raqdx += decalement
-                monEcran = grandit_fenetre(pointeur, largeur, hauteur, decalage_gauche=rebond_gauche)
-                aReb = True
+        # Collision raquettes
+        if (raqgx <= posx - RAYON_BALLE <= raqgx + wg and raqgy <= posy <= raqgy + hg and direction[0] < 0) or (raqdx <= posx + RAYON_BALLE <= raqdx + wd and raqdy <= posy <= raqdy + hd and direction[0] > 0):
+            canal_rebond.play(choice(rebonds))
+            sens = -signe(direction[0])
+            if sens == 1 :
+                angle = -(raqgy+hg/2-posy)*(pi/3)/hg
+                balle_au_gauche=True
+            else :
+                angle = -(raqdy+hd/2-posy)*(pi/3)/hd
+                balle_au_gauche=False
+            
+            direction[0] = sens * cos(angle)
+            direction[1] = sin(angle)
+            vitesse += 0.025
+            largeur += decalement
+            raqdx += decalement
+            monEcran = grandit_fenetre(pointeur, largeur, hauteur, decalage_gauche=sens==1)
+            if randint(1,5) == 1 :
+                dico_dessin["cercle"][f"powerup{id_powerup}"] = powerup(hauteur,largeur)
+                id_powerup += 1
 
-        # Reset rebond
-        if not (raqgx - 2 * rayon <= posx <= raqgx + wg + 2 * rayon or
-                raqdx - 2 * rayon <= posx <= raqdx + wd + 2 * rayon):
-            aReb = False
+        # Collision powerup
+        collision = collision_powerup(dico_dessin,posx,posy)
+        if collision :
+            if dico_dessin["cercle"][collision[0]][2] == ROUGE:
+                vitesse*=2
+            elif dico_dessin["cercle"][collision[0]][2] == VERT:
+                inverse_controle=True
+                joueur_inverse = "droite" if balle_au_gauche else "gauche"
+            elif dico_dessin["cercle"][collision[0]][2] == BLEU:
+                    if balle_au_gauche:
+                        double_raquette_gauche = True
+                    else:
+                        double_raquette_droite = True
+            del dico_dessin["cercle"][collision[0]]
 
         # Score
-        if posx + rayon < 0:
-            scoreg += 1
-            return {"scoreg": scoreg, "scored": scored, "hauteur": hauteur, "largeur": largeur, "jeu": True}
-        elif posx - rayon > largeur:
+        if posx + RAYON_BALLE < 0:
             scored += 1
             return {"scoreg": scoreg, "scored": scored, "hauteur": hauteur, "largeur": largeur, "jeu": True}
+        elif posx - RAYON_BALLE > largeur:
+            scoreg += 1
+            return {"scoreg": scoreg, "scored": scored, "hauteur": hauteur, "largeur": largeur, "jeu": True}
 
-        # Dessins
-        pygame.draw.rect(monEcran, (255, 255, 255), (raqgx, raqgy, wg, hg))
-        pygame.draw.rect(monEcran, (255, 255, 255), (raqdx, raqdy, wd, hd))
+    
         posx += vitesse * direction[0]
         posy += vitesse * direction[1]
-        pygame.draw.circle(monEcran, (255, 255, 255), (posx, posy), rayon)
+
+        if double_raquette_gauche:
+            raqgy2 = hauteur - raqgy - hg  # miroir vertical
+            dico_dessin["rectangle"]["raquette gauche 2"] = [(raqgx, raqgy2, wg, hg), BLANC]
+        if double_raquette_droite:
+            raqdy2 = hauteur - raqdy - hd
+            dico_dessin["rectangle"]["raquette droite 2"] = [(raqdx, raqdy2, wd, hd), BLANC]
+        
+        dico_dessin["rectangle"]["raquette gauche"] = [(raqgx, raqgy, wg, hg), BLANC]
+        dico_dessin["rectangle"]["raquette droite"] = [(raqdx, raqdy, wd, hd), BLANC]
+        dico_dessin["cercle"]["balle"] = [(posx, posy), RAYON_BALLE, BLANC]
+
+
 
         # Reduit la fenêtre
         if pygame.time.get_ticks() % 200 == 0:  # le fais toute les 200ms
@@ -229,30 +310,47 @@ def jeu(scoreg, scored, largeur, hauteur):
             hauteur -= reduction
             raqdx -= reduction
             monEcran = reduit_fenetre(pointeur, largeur, hauteur)
+        if pygame.time.get_ticks() % 5000 == 0:
+            inverse_controle = False
+            joueur_inverse = None
 
         # Evenements pygame
         for evenement in pygame.event.get():
             if evenement.type == pygame.QUIT:
                 jeu_en_cours = False
+
             elif evenement.type == pygame.KEYDOWN:
                 if evenement.key == pygame.K_a:
-                    mouvHautg = True
+                    if inverse_controle and joueur_inverse == "gauche":
+                        mouvBasg = True
+                    else:
+                        mouvHautg = True
                 if evenement.key == pygame.K_q:
-                    mouvBasg = True
+                    if inverse_controle and joueur_inverse == "gauche":
+                        mouvHautg = True
+                    else:
+                        mouvBasg = True
                 if evenement.key == pygame.K_p:
-                    mouvHautd = True
+                    if inverse_controle and joueur_inverse == "droite":
+                        mouvBasd = True
+                    else:
+                        mouvHautd = True
                 if evenement.key == pygame.K_m:
-                    mouvBasd = True
+                    if inverse_controle and joueur_inverse == "droite":
+                        mouvHautd = True
+                    else:
+                        mouvBasd = True
 
             elif evenement.type == pygame.KEYUP:
-                if evenement.key == pygame.K_a:
+                if evenement.key == pygame.K_a or evenement.key == pygame.K_q:
                     mouvHautg = False
-                if evenement.key == pygame.K_q:
                     mouvBasg = False
-                if evenement.key == pygame.K_p:
+                if evenement.key == pygame.K_p or evenement.key == pygame.K_m:
                     mouvHautd = False
-                if evenement.key == pygame.K_m:
                     mouvBasd = False
+
+
+        afficher(dico_dessin,monEcran)
 
     pygame.quit()
     return {"scoreg": 0, "scored": 0, "hauteur": hauteur, "largeur": largeur, "jeu": False}
