@@ -25,7 +25,8 @@ decalement = 20
 reduction = 2
 
 joueMusique=False
-canal_rebond = pygame.mixer.Channel(1)
+canal_rebond_raq = pygame.mixer.Channel(1)
+canal_rebond_bord = pygame.mixer.Channel(2)
 musique = pygame.mixer.Sound(os.path.join("assets", "sons", "musique.mp3"))
 rebonds = [
     pygame.mixer.Sound(os.path.join("assets", "sons", "rebond1.mp3")),
@@ -66,7 +67,8 @@ def menu():
     pygame.display.set_caption("Entree des noms")
 
     police = pygame.font.Font(None, 60)
-    couleur_fond = (30, 30, 30)
+    petite_police = pygame.font.Font(None, 40)
+    couleur_fond = GRIS_FONCE
     couleur_texte = BLANC
 
     joueurg = ""
@@ -74,11 +76,14 @@ def menu():
     entrer_compteur = 0
     texte_actif = "gauche"
 
+    bouton_start_visible = False
+    bouton_rect = pygame.Rect(largeur // 2 - 100, hauteur // 2 + 100, 200, 60)
 
     while True:
         for evenement in pygame.event.get():
             if evenement.type == pygame.QUIT:
                 pygame.quit()
+                sys.exit()
 
             if evenement.type == pygame.KEYDOWN:
                 if evenement.key == pygame.K_RETURN:
@@ -86,12 +91,11 @@ def menu():
                     if entrer_compteur == 1:
                         texte_actif = "droite"
                     elif entrer_compteur == 2:
-                        # Valeurs par défaut si les champs sont vides ou remplis d'espaces
                         if joueurg.strip() == "":
                             joueurg = "flibidi"
                         if joueurd.strip() == "":
                             joueurd = "zagrub"
-                        return joueurg, joueurd
+                        bouton_start_visible = True
 
                 elif evenement.key == pygame.K_BACKSPACE:
                     if texte_actif == "gauche":
@@ -106,16 +110,41 @@ def menu():
                         else:
                             joueurd += caractere
 
+            if evenement.type == pygame.MOUSEBUTTONDOWN and bouton_start_visible:
+                if bouton_rect.collidepoint(evenement.pos):
+                    return joueurg, joueurd
+
         fenetre.fill(couleur_fond)
 
         if texte_actif == "gauche":
             texte_affiche = "Nom du joueur de gauche: " + joueurg
-        else:
+        elif texte_actif == "droite" and not bouton_start_visible:
             texte_affiche = "Nom du joueur de droit: " + joueurd
+        else:
+            texte_affiche = "Cliquez sur START pour commencer"
 
         rendu_texte = police.render(texte_affiche, True, couleur_texte)
-        rect_texte = rendu_texte.get_rect(center=(largeur // 2, hauteur // 2))
+        rect_texte = rendu_texte.get_rect(center=(largeur // 2, hauteur // 2 - 100))
         fenetre.blit(rendu_texte, rect_texte)
+
+        if bouton_start_visible:
+            souris_pos = pygame.mouse.get_pos()
+            x, y = souris_pos
+            x1 = largeur // 2 - 100
+            x2 = largeur // 2 + 100
+            y1 = hauteur // 2 + 100
+            y2 = hauteur // 2 + 160
+
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                couleur_bouton = GRIS_CLAIR
+                couleur_texte_bouton = BLANC
+            else:
+                couleur_bouton = BLANC
+                couleur_texte_bouton = GRIS_FONCE
+
+            pygame.draw.rect(fenetre, couleur_bouton, bouton_rect)
+            texte_bouton = petite_police.render("START", True, couleur_texte_bouton)
+            fenetre.blit(texte_bouton, texte_bouton.get_rect(center=bouton_rect.center))
 
         pygame.display.flip()
 
@@ -125,7 +154,7 @@ def powerup(hauteur, largeur):
     ecart=60
     powx=randint(ecart, largeur-ecart)
     powy=randint(ecart, hauteur-ecart)
-    diff_powerup=[ROUGE,VERT,BLEU]
+    diff_powerup=[ROUGE,VERT,BLEU,JAUNE]
     rep=[(powx, powy), RAYON_POWERUP]
     rep.append(choice(diff_powerup))
     return rep
@@ -194,10 +223,11 @@ def jeu(scoreg, scored, largeur, hauteur):
     joueur_inverse = None
     double_raquette_gauche = False
     double_raquette_droite = False
+    super_vitesse=False
 
     while jeu_en_cours:
         pygame.display.update()
-        monEcran.fill((30, 30, 30))
+        monEcran.fill(GRIS_FONCE)
 
         scores = f"{scoreg} - {scored}"
         score_texte = police.render(scores, True, BLANC)
@@ -211,7 +241,7 @@ def jeu(scoreg, scored, largeur, hauteur):
 
         # Collision haut/bas
         if posy <= 0 or posy >= hauteur:
-            canal_rebond.play(choice(rebonds))
+            canal_rebond_bord.play(choice(rebonds))
             direction[1] *= -1
             if hauteur + decalement <= MAX_HAUTEUR:
                 hauteur += decalement
@@ -243,32 +273,52 @@ def jeu(scoreg, scored, largeur, hauteur):
             if mouvBasd and raqdy <= hauteur - hd:
                 raqdy += avancement
 
-        # Collision raquettes
-        if (raqgx <= posx - RAYON_BALLE <= raqgx + wg and raqgy <= posy <= raqgy + hg and direction[0] < 0) or (raqdx <= posx + RAYON_BALLE <= raqdx + wd and raqdy <= posy <= raqdy + hd and direction[0] > 0):
-            canal_rebond.play(choice(rebonds))
-            sens = -signe(direction[0])
-            if sens == 1 :
-                angle = -(raqgy+hg/2-posy)*(pi/3)/hg
-                balle_au_gauche=True
-            else :
-                angle = -(raqdy+hd/2-posy)*(pi/3)/hd
-                balle_au_gauche=False
-            
-            direction[0] = sens * cos(angle)
-            direction[1] = sin(angle)
-            vitesse += 0.025
-            largeur += decalement
-            raqdx += decalement
-            monEcran = grandit_fenetre(pointeur, largeur, hauteur, decalage_gauche=sens==1)
-            if randint(1,5) == 1 :
-                dico_dessin["cercle"][f"powerup{id_powerup}"] = powerup(hauteur,largeur)
-                id_powerup += 1
+        # Collision raquettes (y compris doubles)
+        collision = False
+        collision_raq_active = False
+        if not collision_raq_active:
+            if raqgx <= posx - RAYON_BALLE <= raqgx + wg and raqgy <= posy <= raqgy + hg and direction[0] < 0:
+                collision = True
+                balle_au_gauche = True
+            elif double_raquette_gauche and raqgx <= posx - RAYON_BALLE <= raqgx + wg and raqgy2 <= posy <= raqgy2 + hg and direction[0] < 0:
+                collision = True
+                balle_au_gauche = True
+            elif raqdx <= posx + RAYON_BALLE <= raqdx + wd and raqdy <= posy <= raqdy + hd and direction[0] > 0:
+                collision = True
+                balle_au_gauche = False
+            elif double_raquette_droite and raqdx <= posx + RAYON_BALLE <= raqdx + wd and raqdy2 <= posy <= raqdy2 + hd and direction[0] > 0:
+                collision = True
+                balle_au_gauche = False
+
+            if collision:
+                canal_rebond_raq.play(choice(rebonds))
+                sens = -signe(direction[0])
+                if sens == 1:
+                    angle = -(raqgy + hg/2 - posy) * (pi/3) / hg
+                else:
+                    angle = -(raqdy + hd/2 - posy) * (pi/3) / hd
+                direction[0] = sens * cos(angle)
+                direction[1] = sin(angle)
+                largeur += decalement
+                raqdx += decalement
+                monEcran = grandit_fenetre(pointeur, largeur, hauteur, decalage_gauche=sens == 1)
+                if randint(1, 5) == 1:
+                    dico_dessin["cercle"][f"powerup{id_powerup}"] = powerup(hauteur, largeur)
+                    id_powerup += 1
+                if super_vitesse:
+                    vitesse=old_vitesse
+                    super_vitesse=False
+                vitesse += 0.025
+                collision_raq_active = True
+
 
         # Collision powerup
         collision = collision_powerup(dico_dessin,posx,posy)
         if collision :
             if dico_dessin["cercle"][collision[0]][2] == ROUGE:
-                vitesse*=2
+                vitesse*=1.3
+                if super_vitesse:
+                    old_vitesse*=1.3
             elif dico_dessin["cercle"][collision[0]][2] == VERT:
                 inverse_controle=True
                 joueur_inverse = "droite" if balle_au_gauche else "gauche"
@@ -277,6 +327,10 @@ def jeu(scoreg, scored, largeur, hauteur):
                         double_raquette_gauche = True
                     else:
                         double_raquette_droite = True
+            elif dico_dessin["cercle"][collision[0]][2] == JAUNE:
+                old_vitesse=vitesse
+                vitesse*=2
+                super_vitesse=True
             del dico_dessin["cercle"][collision[0]]
 
         # Score
@@ -291,6 +345,9 @@ def jeu(scoreg, scored, largeur, hauteur):
         posx += vitesse * direction[0]
         posy += vitesse * direction[1]
 
+        if not (raqgx <= posx - RAYON_BALLE <= raqgx + wg) and not (raqdx <= posx + RAYON_BALLE <= raqdx + wd):
+            collision_raq_active = False
+
         if double_raquette_gauche:
             raqgy2 = hauteur - raqgy - hg  # miroir vertical
             dico_dessin["rectangle"]["raquette gauche 2"] = [(raqgx, raqgy2, wg, hg), BLANC]
@@ -302,7 +359,7 @@ def jeu(scoreg, scored, largeur, hauteur):
         dico_dessin["rectangle"]["raquette droite"] = [(raqdx, raqdy, wd, hd), BLANC]
         dico_dessin["cercle"]["balle"] = [(posx, posy), RAYON_BALLE, BLANC]
 
-
+ 
 
         # Reduit la fenêtre
         if pygame.time.get_ticks() % 200 == 0:  # le fais toute les 200ms
